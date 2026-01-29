@@ -101,8 +101,13 @@ struct proc {
   uint64 sz;                   // Size of process memory (bytes)
   pagetable_t pagetable;       // User page table
   struct trapframe *trapframe; // data page for trampoline.S
+  struct trapframe *trapframe_sig; //sigalarm lab中sigreturn函数使用
   struct context context;      // swtch() here to run process
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  int pticks;                  //sigalarm lab 间隔多少周期调用一次
+  uint64 addr;                 //sigalarm lab 调用地址
+  int alarm_elapsed;           //sigalarm lab 已经经历多少个ticks
+  int alarming;                //sigalarm lab 中防止重入调用
 };

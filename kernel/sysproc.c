@@ -60,6 +60,8 @@ sys_sleep(void)
 
   if(argint(0, &n) < 0)
     return -1;
+
+  backtrace();
   acquire(&tickslock);
   ticks0 = ticks;
   while(ticks - ticks0 < n){
@@ -94,4 +96,35 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64 
+sys_sigreturn(void)
+{
+  myproc()->alarming = 0;
+  //在这里返回系统调用所需要的寄存器，以及epc
+  memmove(myproc()->trapframe, myproc()->trapframe_sig, sizeof(struct trapframe));
+  
+  return 0;
+}
+
+uint64 
+sys_sigalarm(void)
+{
+  int pticks;
+  uint64 addr;
+
+  if(argint(0, &pticks) < 0)
+    return -1;
+  if(argaddr(1, &addr) < 0)
+    return -1;
+  
+  struct proc *p = myproc(); 
+  p->pticks = pticks;
+  p->addr = addr;
+
+  printf("sigalarm: pid=%d, pticks=%d, addr=%p\n", 
+           p->pid, pticks, addr);
+
+  return 0;
 }

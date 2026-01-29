@@ -78,8 +78,23 @@ usertrap(void)
 
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2)
-    yield();
-
+  {
+    if(p->alarming == 1) goto end;
+    if(p->pticks > 0)
+    {
+      p->alarm_elapsed ++;
+      if(p->alarm_elapsed >= p->pticks)
+      {
+        //printf("  TRIGGER! Setting epc to %p\n", p->addr);
+        p->alarm_elapsed = 0;
+        if(p->trapframe_sig == 0) p->trapframe_sig = kalloc();
+        memmove(p->trapframe_sig, p->trapframe, sizeof(struct trapframe));
+        p->trapframe->epc = p->addr;
+        p->alarming = 1;
+      }
+    }
+  }
+end:
   usertrapret();
 }
 
