@@ -400,6 +400,35 @@ bmap(struct inode *ip, uint bn)
     brelse(bp);
     return addr;
   }
+  bn -= NINDIRECT;
+
+  if(bn < NDINDIRECT){
+    // 如果在二级间接块范围内
+    // 如果第12个块没有被分配
+    if((addr = ip->addrs[12]) == 0)
+      ip->addrs[12] = addr = balloc(ip->dev);
+    //读取存放索引表的物理块到缓存中
+    bp = bread(ip->dev, addr);
+    //第一级间接块的编号
+    uint fbn = bn / NINDIRECT;
+    //第二级间接块的编号
+    uint sbn = bn % NINDIRECT;
+    a = (uint*)bp->data;
+    //查找一级索引的块是否存在，如果不存在就分配
+    if((addr = a[fbn]) == 0){
+      a[fbn] = addr = balloc(ip->dev);
+      log_write(bp);
+    }
+    struct buf *tbp = bread(ip->dev, addr);
+    a = (uint*)tbp->data;
+    if((addr = a[sbn]) == 0){
+      a[sbn] = addr = balloc(ip->dev);
+      log_write(tbp);
+    }
+    brelse(tbp);
+    brelse(bp);
+    return addr;
+  }
 
   panic("bmap: out of range");
 }
@@ -432,6 +461,7 @@ itrunc(struct inode *ip)
     ip->addrs[NDIRECT] = 0;
   }
 
+  //TODO:释放双重间接块
   ip->size = 0;
   iupdate(ip);
 }
