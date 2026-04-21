@@ -85,6 +85,7 @@ kalloc(void)
   r = ckmem[id].freelist;
   if(r)
     ckmem[id].freelist = r->next;
+  release(&ckmem[id].lock);
   
   //如果自己没有空闲内存，就去窃取
   if(!r)
@@ -107,7 +108,6 @@ kalloc(void)
       }
     }
   }
-  release(&ckmem[id].lock);
   pop_off();
 
   if(r)
