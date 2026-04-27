@@ -65,3 +65,6 @@
 //   TRAPFRAME (p->trapframe, used by the trampoline)
 //   TRAMPOLINE (the same page as in the kernel)
 #define TRAPFRAME (TRAMPOLINE - PGSIZE)
+#define MAX_PAGE ((PHYSTOP- KERNBASE) / PGSIZE)
+//cow计数数组
+extern int cow_n[];

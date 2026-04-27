@@ -116,6 +116,21 @@ walkaddr(pagetable_t pagetable, uint64 va)
     return 0;
   if((*pte & PTE_U) == 0)
     return 0;
+  if((*pte & PTE_C) != 0)
+  {
+    char* mem;
+    pa = PTE2PA(*pte);
+    uint flags = PTE_FLAGS(*pte);
+    flags = (flags | PTE_W) & ~PTE_C;
+    if((mem = kalloc()) == 0)
+    {
+      return 0;
+    }
+    memmove(mem, (char*)pa, PGSIZE);
+    //减少原页面引用计数,并进行回收，要不会把页面耗尽
+    kfree((void *)pa);
+    *pte = PA2PTE(mem) | flags;
+  }
   pa = PTE2PA(*pte);
   return pa;
 }
@@ -303,7 +318,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  char *mem;
+  //char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
@@ -312,13 +327,16 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
+    *pte = ((*pte) & (~PTE_W)) | (PTE_C);
+    flags = (flags & (~PTE_W)) | (PTE_C);
+    //if((mem = kalloc()) == 0)
+    //  goto err;
+    //memmove(mem, (char*)pa, PGSIZE);
+    if(mappages(new, i, PGSIZE, pa, flags) != 0){
       goto err;
     }
+    //增加页面计数
+    cow_n[((uint64)pa-KERNBASE) / PGSIZE]++;
   }
   return 0;
 

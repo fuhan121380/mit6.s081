@@ -67,6 +67,37 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
+  } else if(r_scause() == 15){
+    //printf("r_scause:%d\n", r_scause());
+    char* mem;
+    pte_t *pte;
+    uint64 pa;
+    //获取出错的虚拟地址
+    uint64 va = r_stval();
+    if(va >= MAXVA)
+    {
+      p->killed = 1;
+      exit(-1);
+    }
+    //寻找最终一层的页表项
+    if((pte = walk(p->pagetable, va, 0)) == 0)
+      panic("COW: pte should exist");
+    if((*pte & PTE_C) == 0)
+      panic("not COW");
+    if((*pte & PTE_V) == 0)
+      panic("COW: page not present");
+    pa = PTE2PA(*pte);
+    uint flags = PTE_FLAGS(*pte);
+    flags = (flags | PTE_W) & ~PTE_C;
+    if((mem = kalloc()) == 0)
+    {
+      p->killed = 1;
+      exit(-1);
+    }
+    memmove(mem, (char*)pa, PGSIZE);
+    //减少原页面引用计数
+    kfree((void *)pa);
+    *pte = PA2PTE(mem) | flags;
   } else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
